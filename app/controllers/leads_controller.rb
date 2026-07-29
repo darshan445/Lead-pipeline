@@ -75,32 +75,32 @@ class LeadsController < ApplicationController
     lead = Lead.find(params[:id])
 
     unless lead.retryable?
-      redirect_to lead_path(lead), alert: "This lead is not retryable." and return
+      redirect_back_or_to leads_path, alert: "This lead is not retryable." and return
     end
 
     case lead.retry_stage
     when :scrape
       Leads::LinkedinScrapeJob.perform_later([ lead.id ])
-      message = "Retrying company scrape..."
+      message = "Retrying company scrape for #{lead.profile_name}..."
     when :qualify
       lead.update!(status: :qualifying, error_message: nil)
       Leads::LinkedinQualifyJob.perform_later(lead.id)
-      message = "Retrying company qualification..."
+      message = "Retrying company qualification for #{lead.profile_name}..."
     when :employee_select
       lead.update!(status: :employee_discovery, error_message: nil)
       Leads::LinkedinEmployeesJob.perform_later(lead.id)
-      message = "Retrying employee discovery and selection..."
+      message = "Retrying employee discovery for #{lead.profile_name}..."
     when :pitch
       Leads::PitchGenerationJob.perform_later(lead.id)
-      message = "Retrying pitch generation..."
+      message = "Retrying pitch generation for #{lead.profile_name}..."
     when :send
       Leads::GmailSendJob.perform_later(lead.id)
-      message = "Retrying Gmail send..."
+      message = "Retrying Gmail send for #{lead.profile_name}..."
     else
-      redirect_to lead_path(lead), alert: "Could not determine which step to retry." and return
+      redirect_back_or_to leads_path, alert: "Could not determine which step to retry." and return
     end
 
-    redirect_to lead_path(lead), notice: message
+    redirect_back_or_to leads_path, notice: message
   end
 
   def generate_pitch
