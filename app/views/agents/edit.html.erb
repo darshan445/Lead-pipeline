@@ -1,0 +1,6 @@
+<% content_for :title, "Edit agent" %>
+
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold text-gray-900 mb-6">Edit <%= @agent.name %></h1>
+  <%= render "form", agent: @agent %>
+</div>

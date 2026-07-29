@@ -1,0 +1,102 @@
+<div id="<%= dom_id(lead, :detail) %>" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="rounded-lg border border-gray-200 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-xl font-semibold text-gray-900"><%= lead.profile_name %></h1>
+      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium <%= lead.person_lead? ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700" %>">
+        <%= lead.person_lead? ? "Person" : "Company" %>
+      </span>
+    </div>
+
+    <dl class="text-sm space-y-2 mb-6">
+      <div class="flex gap-2"><dt class="w-28 text-gray-500">Status</dt><dd class="font-medium"><%= lead.status.humanize %></dd></div>
+      <div class="flex gap-2"><dt class="w-28 text-gray-500">Profile URL</dt><dd><a href="<%= lead.profile_url %>" target="_blank" rel="noopener" class="text-indigo-600 hover:underline break-all"><%= lead.profile_url %></a></dd></div>
+      <% if lead.raw_data.dig("currentPositions", 0, "title").present? %>
+        <div class="flex gap-2"><dt class="w-28 text-gray-500">Title</dt><dd class="text-gray-700"><%= lead.raw_data.dig("currentPositions", 0, "title") %></dd></div>
+      <% end %>
+      <% if lead.raw_data["companyName"].present? %>
+        <div class="flex gap-2"><dt class="w-28 text-gray-500">Company</dt><dd class="text-gray-700"><%= lead.raw_data["companyName"] %></dd></div>
+      <% end %>
+      <% if lead.website_url.present? || lead.raw_data["companyWebsite"].present? %>
+        <% domain = lead.website_url.presence || lead.raw_data["companyWebsite"] %>
+        <div class="flex gap-2"><dt class="w-28 text-gray-500">Domain</dt><dd><a href="<%= domain %>" target="_blank" rel="noopener" class="text-indigo-600 hover:underline break-all"><%= domain %></a></dd></div>
+      <% end %>
+      <div class="flex gap-2"><dt class="w-28 text-gray-500">Email</dt><dd class="text-gray-700"><%= lead.email.presence || "—" %></dd></div>
+      <% if lead.error_message.present? %>
+        <div class="flex gap-2"><dt class="w-28 text-gray-500">Note</dt><dd class="text-red-600"><%= lead.error_message %></dd></div>
+      <% end %>
+    </dl>
+
+    <h2 class="text-sm font-medium text-gray-700 mb-2">Raw scraped data</h2>
+    <pre class="max-h-96 overflow-auto rounded-md bg-gray-50 p-3 text-xs text-gray-700"><%= JSON.pretty_generate(lead.raw_data) %></pre>
+    <div class="mt-4 flex gap-2 text-sm">
+      <dt class="w-28 text-gray-500">Query</dt>
+      <dd class="text-gray-700"><%= lead.query %></dd>
+    </div>
+  </div>
+
+  <div class="rounded-lg border border-gray-200 p-5">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Pitch</h2>
+
+    <% if lead.person_lead? && (lead.ready? || lead.pitched? || lead.failed? || lead.sent?) %>
+      <div class="mb-4 flex flex-wrap gap-2">
+        <%= button_to "Generate pitch", generate_pitch_lead_path(lead), class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 cursor-pointer" %>
+        <% if lead.retryable? %>
+          <%= button_to "Retry failed step", retry_lead_path(lead), class: "rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-400 cursor-pointer" %>
+        <% end %>
+      </div>
+    <% elsif lead.company_lead? %>
+      <div class="mb-4 flex flex-wrap gap-2">
+        <p class="text-sm text-gray-500">Company records are used to find people. Generate pitches on person leads.</p>
+        <% if lead.retryable? %>
+          <%= button_to "Retry failed step", retry_lead_path(lead), class: "rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-400 cursor-pointer" %>
+        <% end %>
+      </div>
+    <% elsif lead.queued? %>
+      <p class="text-sm text-gray-500 mb-4">Queued for staggered Gmail send…</p>
+    <% elsif lead.sending? %>
+      <p class="text-sm text-gray-500 mb-4">Sending via Gmail…</p>
+    <% else %>
+      <p class="text-sm text-gray-500 mb-4">Waiting for the pipeline to finish…</p>
+    <% end %>
+
+    <% if lead.pitch_ready? %>
+      <div class="space-y-4 mb-4">
+        <div>
+          <div class="mb-1 flex items-center gap-2">
+            <span class="inline-flex items-center rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-indigo-800">Subject</span>
+          </div>
+          <div class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
+            <%= lead.display_pitch_subject.presence || "—" %>
+          </div>
+        </div>
+        <div>
+          <div class="mb-1 flex items-center gap-2">
+            <span class="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-700">Body</span>
+          </div>
+          <div class="rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-800 prose prose-sm max-w-none [&_p]:mb-3 [&_p:last-child]:mb-0 [&_a]:text-indigo-600 [&_a]:underline">
+            <%= sanitize lead.display_pitch_body_html, tags: %w[p br strong a], attributes: %w[href class] %>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <p class="text-sm text-gray-400 mb-4">No pitch generated yet.</p>
+    <% end %>
+
+    <% if lead.person_lead? && lead.pitch_ready? %>
+      <div class="rounded-md border border-slate-200 bg-slate-50 p-4 space-y-3">
+        <p class="text-sm text-slate-900 font-medium">Set the recipient email here. Sending happens from the leads list bulk action.</p>
+        <%= form_with url: update_email_lead_path(lead), method: :patch, class: "space-y-3" do %>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Recipient email</label>
+            <%= email_field_tag :email, lead.email, required: true, placeholder: "name@company.com",
+                  class: "w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+          </div>
+          <%= submit_tag "Save email",
+                class: "rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 cursor-pointer" %>
+        <% end %>
+      </div>
+    <% elsif lead.sent? %>
+      <p class="text-sm text-green-700 font-medium">Sent via Gmail from <%= ENV.fetch("GMAIL_SENDER_EMAIL", "darsh@getscotive.com") %>.</p>
+    <% end %>
+  </div>
+</div>

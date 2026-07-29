@@ -1,0 +1,105 @@
+<% content_for :title, "Scotive Lead Pipeline" %>
+
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold text-gray-900 mb-1">Scotive outreach</h1>
+  <p class="text-sm text-gray-500">Find LinkedIn companies, qualify them for Scotive, pick who to pitch, generate emails.</p>
+</div>
+
+<div class="mb-8">
+  <%= form_with url: discover_leads_path, method: :post, class: "rounded-lg border border-gray-200 p-4 space-y-3" do %>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Search query</label>
+      <textarea name="query" rows="2" required
+        placeholder='site:linkedin.com/company/ "digital marketing agency" OR "creative agency"'
+        class="w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+      <p class="mt-1 text-xs text-gray-400">Google → LinkedIn company pages only. Example: site:linkedin.com/company/ "marketing agency"</p>
+    </div>
+    <div class="flex items-end gap-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Max companies</label>
+        <select name="max_results" class="rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+          <option value="10">10</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="300">300</option>
+          <option value="500">500</option>
+          <option value="1000" selected>1000 (all)</option>
+        </select>
+      </div>
+      <%= submit_tag "Run discovery", class: "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 cursor-pointer" %>
+    </div>
+  <% end %>
+</div>
+
+<% unless @gmail_ready %>
+  <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    Gmail is not connected yet.
+    <%= link_to "Connect Gmail (darsh@getscotive.com)", gmail_oauth_connect_path, class: "font-medium underline" %>.
+    Add this redirect URI in Google Cloud OAuth client:
+    <code class="text-xs"><%= ENV.fetch("GMAIL_REDIRECT_URI", "http://localhost:3000/gmail/oauth/callback") %></code>
+  </div>
+<% end %>
+
+<div class="mb-4 flex flex-wrap gap-2 text-sm">
+  <%= link_to "All (#{@lead_counts[:all]})", leads_path, class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" unless params[:status]} border border-gray-200" %>
+  <%= link_to "Ready (#{@lead_counts[:ready]})", leads_path(status: "ready"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "ready"} border border-gray-200" %>
+  <%= link_to "Pitched (#{@lead_counts[:pitched]})", leads_path(status: "pitched"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "pitched"} border border-gray-200" %>
+  <%= link_to "Queued (#{@lead_counts[:queued]})", leads_path(status: "queued"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "queued"} border border-gray-200" %>
+  <%= link_to "Sent (#{@lead_counts[:sent]})", leads_path(status: "sent"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "sent"} border border-gray-200" %>
+  <%= link_to "Rejected (#{@lead_counts[:rejected]})", leads_path(status: "rejected"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "rejected"} border border-gray-200" %>
+  <%= link_to "Failed (#{@lead_counts[:failed]})", leads_path(status: "failed"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "failed"} border border-gray-200" %>
+</div>
+
+<%= turbo_stream_from :leads %>
+
+<%= form_with url: bulk_destroy_leads_path, method: :delete, class: "space-y-3", data: { controller: "bulk-select" } do %>
+  <%= hidden_field_tag :status, params[:status] if params[:status].present? %>
+  <div class="flex items-center justify-between gap-3">
+    <p class="text-xs text-gray-500">Select leads, then queue Gmail sends (randomized order, <%= Leads::GmailQueue.delay_range_label %> between each, only <%= Leads::GmailSendWindow.label %>) or delete in bulk.</p>
+    <div class="flex flex-wrap items-center gap-2">
+      <%= submit_tag "Send via Gmail",
+            formaction: bulk_send_pitch_leads_path,
+            formmethod: "post",
+            data: { turbo_confirm: "Queue selected Pitched or Sent leads via Gmail (randomized, staggered)?" },
+            class: "rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 cursor-pointer" %>
+      <%= submit_tag "Delete selected",
+            data: { turbo_confirm: "Delete the selected leads?" },
+            class: "rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 cursor-pointer" %>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-gray-200">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+            <label class="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                class="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                data-bulk-select-target="master"
+                data-action="bulk-select#toggleAll"
+              >
+              <span>Select</span>
+            </label>
+          </th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Discovered</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Company / domain</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pitch</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="leads" class="bg-white divide-y divide-gray-100">
+        <% if @leads.any? %>
+          <%= render partial: "leads/lead_row", collection: @leads, as: :lead %>
+        <% else %>
+          <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500">No leads yet — run a discovery query above.</td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

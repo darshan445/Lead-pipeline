@@ -1,0 +1,40 @@
+<% unless lead.hidden_from_ui? %>
+<tr id="<%= dom_id(lead) %>" class="border-b border-gray-100 hover:bg-gray-50">
+  <td class="px-4 py-3 text-sm text-gray-500">
+    <%= check_box_tag "lead_ids[]", lead.id, false,
+          class: "rounded border-gray-300 text-red-600 focus:ring-red-500",
+          data: { bulk_select_target: "item", action: "bulk-select#syncMaster" } %>
+  </td>
+  <td class="px-4 py-3 text-sm text-gray-500"><%= lead.created_at.strftime("%b %d, %H:%M") %></td>
+  <td class="px-4 py-3 text-sm">
+    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium <%= lead.person_lead? ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-700" %>">
+      <%= lead.person_lead? ? "Person" : "Company" %>
+    </span>
+  </td>
+  <td class="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
+    <a href="<%= lead.profile_url %>" target="_blank" rel="noopener" class="hover:underline"><%= lead.profile_name %></a>
+  </td>
+  <td class="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
+    <% if lead.person_lead? %>
+      <%= lead.raw_data["companyName"].presence || lead.website_url.presence || "—" %>
+    <% else %>
+      <%= lead.website_url.presence || "—" %>
+    <% end %>
+  </td>
+  <td class="px-4 py-3 text-sm">
+    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+      <%= lead.failed? || lead.rejected? ? "bg-red-100 text-red-800" : lead.ready? || lead.pitched? || lead.sent? ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800" %>">
+      <%= lead.status.humanize %>
+    </span>
+  </td>
+  <td class="px-4 py-3 text-sm text-gray-500"><%= lead.pitch_ready? ? "Yes" : "—" %></td>
+  <td class="px-4 py-3 text-sm text-right">
+    <% if lead.retryable? %>
+      <%= button_to "Retry", retry_lead_path(lead),
+            method: :post,
+            class: "mr-3 inline text-amber-700 hover:underline bg-transparent p-0 border-0 cursor-pointer" %>
+    <% end %>
+    <%= link_to "View", lead_path(lead), class: "text-indigo-600 hover:underline" %>
+  </td>
+</tr>
+<% end %>

@@ -1,0 +1,45 @@
+# PostgreSQL. Versions 9.3 and up are supported.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  # For details on connection pooling, see Rails configuration guide
+  # https://guides.rubyonrails.org/configuring.html#database-pooling
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  username: <%= ENV.fetch("POSTGRES_USER", "postgres") %>
+  password: <%= ENV.fetch("POSTGRES_PASSWORD", "postgres") %>
+  host: <%= ENV.fetch("POSTGRES_HOST", "localhost") %>
+  port: <%= ENV.fetch("POSTGRES_PORT", "5432") %>
+
+development:
+  primary: &primary_development
+    <<: *default
+    database: <%= ENV.fetch("POSTGRES_DB", "lead_pipeline_development") %>
+  queue:
+    <<: *primary_development
+    database: <%= ENV.fetch("POSTGRES_QUEUE_DB", "#{ENV.fetch("POSTGRES_DB", "lead_pipeline_development")}_queue") %>
+    migrations_paths: db/queue_migrate
+
+test:
+  <<: *default
+  database: lead_pipeline_test
+
+# Store production passwords in ENV, never in source.
+# Docker / Vultr: set POSTGRES_* vars (see docker/env.production.example).
+production:
+  primary: &primary_production
+    <<: *default
+    database: <%= ENV.fetch("POSTGRES_DB", "lead_pipeline_production") %>
+    username: <%= ENV.fetch("POSTGRES_USER", "lead_pipeline") %>
+    password: <%= ENV["POSTGRES_PASSWORD"] || ENV["LEAD_PIPELINE_DATABASE_PASSWORD"] %>
+  cache:
+    <<: *primary_production
+    database: <%= ENV.fetch("POSTGRES_CACHE_DB", "#{ENV.fetch("POSTGRES_DB", "lead_pipeline_production")}_cache") %>
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_production
+    database: <%= ENV.fetch("POSTGRES_QUEUE_DB", "#{ENV.fetch("POSTGRES_DB", "lead_pipeline_production")}_queue") %>
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_production
+    database: <%= ENV.fetch("POSTGRES_CABLE_DB", "#{ENV.fetch("POSTGRES_DB", "lead_pipeline_production")}_cable") %>
+    migrations_paths: db/cable_migrate

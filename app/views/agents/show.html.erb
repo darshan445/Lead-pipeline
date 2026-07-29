@@ -1,0 +1,77 @@
+<% content_for :title, @agent.name %>
+
+<div class="mb-6 flex items-start justify-between">
+  <div>
+    <div class="text-sm text-gray-400 mb-1"><%= link_to "← Agents", agents_path, class: "hover:underline" %></div>
+    <h1 class="text-2xl font-semibold text-gray-900 mb-1"><%= @agent.name %></h1>
+    <% if @agent.description.present? %>
+      <p class="text-sm text-gray-500 max-w-2xl"><%= @agent.description %></p>
+    <% end %>
+  </div>
+  <%= link_to "Edit agent", edit_agent_path(@agent), class: "rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" %>
+</div>
+
+<div class="mb-10">
+  <%= form_with url: discover_agent_path(@agent), method: :post, class: "rounded-lg border border-gray-200 p-4 space-y-3" do %>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Search query</label>
+      <textarea name="query" rows="2" required
+        placeholder='site:instagram.com "paid partnership" ("@gmail.com" OR "contact@") -site:instagram.com/p/ -site:instagram.com/reel/'
+        class="w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+    </div>
+    <div class="flex items-end gap-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Platform</label>
+        <select name="platform" class="rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+          <option value="instagram">Instagram</option>
+          <option value="linkedin">LinkedIn</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Max search results</label>
+        <select name="max_results" class="rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="300">300</option>
+          <option value="500">500</option>
+          <option value="1000" selected>1000 (all)</option>
+        </select>
+      </div>
+      <%= submit_tag "Run discovery", class: "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 cursor-pointer" %>
+    </div>
+  <% end %>
+</div>
+
+<div class="mb-4 flex gap-2 text-sm">
+  <%= link_to "All", agent_path(@agent), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" unless params[:status] || params[:source]}" %>
+  <%= link_to "Instagram", agent_path(@agent, source: "instagram"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:source] == "instagram"} border border-gray-200" %>
+  <%= link_to "LinkedIn", agent_path(@agent, source: "linkedin"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:source] == "linkedin"} border border-gray-200" %>
+  <%= link_to "Ready", agent_path(@agent, status: "ready"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "ready"} border border-gray-200" %>
+  <%= link_to "Pitched", agent_path(@agent, status: "pitched"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "pitched"} border border-gray-200" %>
+  <%= link_to "Failed", agent_path(@agent, status: "failed"), class: "px-3 py-1 rounded-md #{"bg-gray-900 text-white" if params[:status] == "failed"} border border-gray-200" %>
+</div>
+
+<%= turbo_stream_from @agent %>
+
+<div class="overflow-x-auto rounded-lg border border-gray-200">
+  <table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Discovered</th>
+        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Profile</th>
+        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pitch</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="leads" class="bg-white divide-y divide-gray-100">
+      <% if @leads.any? %>
+        <%= render partial: "leads/lead_row", collection: @leads, as: :lead %>
+      <% else %>
+        <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500">No leads yet — run a discovery query above.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

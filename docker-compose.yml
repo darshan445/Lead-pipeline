@@ -1,0 +1,58 @@
+# Development stack: Rails + Postgres.
+# Solid Queue runs inside Puma (SOLID_QUEUE_IN_PUMA) — no separate worker.
+#
+#   cp docker/env.development.example .env   # if needed; compose also sets DB vars
+#   docker compose up --build
+#
+# App: http://localhost:3000
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lead_pipeline_development
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-development.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lead_pipeline_development"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    entrypoint: ["/rails/bin/docker-entrypoint"]
+    command: ["./bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
+    volumes:
+      - .:/rails
+      - bundle_dev:/usr/local/bundle
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      RAILS_ENV: development
+      POSTGRES_HOST: db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lead_pipeline_development
+      POSTGRES_QUEUE_DB: lead_pipeline_development_queue
+      SOLID_QUEUE_IN_PUMA: "true"
+      GMAIL_REDIRECT_URI: http://localhost:3000/gmail/oauth/callback
+    depends_on:
+      db:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_dev_data:
+  bundle_dev:

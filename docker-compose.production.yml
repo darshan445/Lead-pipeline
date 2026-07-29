@@ -1,0 +1,61 @@
+# Production stack for a personal Vultr VPS.
+# Access via http://YOUR_IP/ — no domain, SSL, Caddy, or nginx required.
+# Solid Queue runs inside Puma — no separate worker container.
+#
+#   cp docker/env.production.example .env.production
+#   # fill SECRET_KEY_BASE, POSTGRES_PASSWORD, API keys, GMAIL_REDIRECT_URI with your IP
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lead_pipeline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-lead_pipeline_production}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-production.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env.production
+        required: false
+    environment:
+      RAILS_ENV: production
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER:-lead_pipeline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-lead_pipeline_production}
+      POSTGRES_CACHE_DB: ${POSTGRES_CACHE_DB:-lead_pipeline_production_cache}
+      POSTGRES_QUEUE_DB: ${POSTGRES_QUEUE_DB:-lead_pipeline_production_queue}
+      POSTGRES_CABLE_DB: ${POSTGRES_CABLE_DB:-lead_pipeline_production_cable}
+      SOLID_QUEUE_IN_PUMA: "true"
+      FORCE_SSL: "false"
+      ASSUME_SSL: "false"
+      RAILS_ALLOW_ALL_HOSTS: "true"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE}
+      PORT: 80
+    ports:
+      - "${APP_PORT:-80}:80"
+    volumes:
+      - storage_prod:/rails/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_prod_data:
+  storage_prod:

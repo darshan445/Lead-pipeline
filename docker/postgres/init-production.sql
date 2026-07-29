@@ -1,0 +1,3 @@
+CREATE DATABASE lead_pipeline_production_cache;
+CREATE DATABASE lead_pipeline_production_queue;
+CREATE DATABASE lead_pipeline_production_cable;
