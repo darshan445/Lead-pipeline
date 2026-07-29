@@ -1,15 +1,16 @@
 module Leads
   # After a company passes Scotive ICP qualification, fetch employees and create person leads.
   class LinkedinEmployeesJob < ApplicationJob
-    queue_as :default
+    queue_as :employees
 
     ACTOR_ID = "Vb6LZkh4EqRlR0Ka9" # harvestapi/linkedin-company-employees
     PROFILE_SCRAPER_MODE = "Short ($4 per 1k)"
     MAX_EMPLOYEES = 20
+    NO_EMPLOYEES_MESSAGE = "No employees returned by scraper"
 
     def perform(company_lead_id)
       company_lead = Lead.find(company_lead_id)
-      company_lead.update!(status: :employee_discovery)
+      company_lead.update!(status: :employee_discovery, error_message: nil)
 
       employees = fetch_employees(company_lead.profile_url)
       company_lead.update!(
@@ -17,7 +18,7 @@ module Leads
       )
 
       if employees.empty?
-        company_lead.update!(status: :ready, error_message: "No employees returned by scraper")
+        company_lead.update!(status: :failed, error_message: NO_EMPLOYEES_MESSAGE)
         return
       end
 

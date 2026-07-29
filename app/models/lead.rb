@@ -61,15 +61,21 @@ class Lead < ApplicationRecord
   end
 
   def retryable?
-    failed?
+    failed? || rejected? || no_employees_returned?
+  end
+
+  def no_employees_returned?
+    company_lead? && error_message.to_s.include?(Leads::LinkedinEmployeesJob::NO_EMPLOYEES_MESSAGE)
   end
 
   # Best-effort resume point based on what data the lead already has.
   def retry_stage
+    return :qualify if rejected? && company_lead?
+
     if company_lead?
       return :scrape if raw_data.blank?
       return :qualify if raw_data["qualification_analysis"].blank?
-      return :employee_select if raw_data["employee_selection_analysis"].blank?
+      return :employee_select if no_employees_returned? || raw_data["employee_selection_analysis"].blank?
     end
 
     return :send if person_lead? && pitch_ready?

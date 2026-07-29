@@ -83,9 +83,11 @@ class LeadsController < ApplicationController
       Leads::LinkedinScrapeJob.perform_later([ lead.id ])
       message = "Retrying company scrape..."
     when :qualify
+      lead.update!(status: :qualifying, error_message: nil)
       Leads::LinkedinQualifyJob.perform_later(lead.id)
       message = "Retrying company qualification..."
     when :employee_select
+      lead.update!(status: :employee_discovery, error_message: nil)
       Leads::LinkedinEmployeesJob.perform_later(lead.id)
       message = "Retrying employee discovery and selection..."
     when :pitch

@@ -3,8 +3,13 @@ default: &default
     - polling_interval: 1
       batch_size: 500
   workers:
-    - queues: "*"
-      threads: 3
+    # One company employee scrape at a time (avoids Apify/LinkedIn empty results under load).
+    - queues: employees
+      threads: 1
+      processes: 1
+      polling_interval: 0.5
+    - queues: default
+      threads: 2
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
       polling_interval: 0.1
 
