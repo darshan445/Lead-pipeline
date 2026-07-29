@@ -30,9 +30,11 @@
   <td class="px-4 py-3 text-sm text-gray-500"><%= lead.pitch_ready? ? "Yes" : "—" %></td>
   <td class="px-4 py-3 text-sm text-right">
     <% if lead.retryable? %>
-      <%= button_to "Retry", retry_lead_path(lead),
-            method: :post,
-            class: "mr-3 inline text-amber-700 hover:underline bg-transparent p-0 border-0 cursor-pointer" %>
+      <%# Must be a link (not button_to): this row sits inside the bulk-delete form,
+          and nested forms make Retry submit delete instead. %>
+      <%= link_to "Retry", retry_lead_path(lead),
+            data: { turbo_method: :post },
+            class: "mr-3 text-amber-700 hover:underline" %>
     <% end %>
     <%= link_to "View", lead_path(lead), class: "text-indigo-600 hover:underline" %>
   </td>
