@@ -7,7 +7,10 @@ if [ -z "${LD_PRELOAD+x}" ]; then
 fi
 
 # Prepare DB when starting the Rails server (plain or via Thruster).
+# Creates primary/queue/cable DBs and loads schemas (needed for Turbo Stream broadcasts).
 if [[ "$*" == *"./bin/rails"* && "$*" == *"server"* ]] || [[ "$*" == *"./bin/thrust"* ]]; then
+  # Stale pid from a previous container kill blocks boot ("A server is already running").
+  rm -f tmp/pids/server.pid
   ./bin/rails db:prepare
 fi
 

@@ -18,6 +18,10 @@ development:
     <<: *primary_development
     database: <%= ENV.fetch("POSTGRES_QUEUE_DB", "#{ENV.fetch("POSTGRES_DB", "lead_pipeline_development")}_queue") %>
     migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_development
+    database: <%= ENV.fetch("POSTGRES_CABLE_DB", "#{ENV.fetch("POSTGRES_DB", "lead_pipeline_development")}_cable") %>
+    migrations_paths: db/cable_migrate
 
 test:
   <<: *default

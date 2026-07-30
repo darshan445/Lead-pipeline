@@ -110,9 +110,29 @@ class LeadsController < ApplicationController
       redirect_to lead_path(lead), alert: "Pitch only for people leads, not company pages." and return
     end
 
-    Leads::PitchGenerationJob.perform_later(lead.id)
+    personalization = params[:personalization].to_s.strip.presence
+    persist_pitch_personalization!(lead, personalization)
+    Leads::PitchGenerationJob.perform_later(lead.id, personalization: personalization)
 
     redirect_to lead_path(lead), notice: "Generating pitch..."
+  end
+
+  def find_email
+    lead = Lead.find(params[:id])
+
+    unless lead.person_lead?
+      redirect_to lead_path(lead), alert: "Email find is only for people leads." and return
+    end
+
+    result = Leads::EmailFinder.call(lead)
+
+    if result.email.present?
+      redirect_to lead_path(lead), notice: "Email found: #{result.email}"
+    else
+      redirect_to lead_path(lead), alert: "No email found for #{lead.profile_name}."
+    end
+  rescue Leads::EmailFinder::Error, AnymailfinderClient::Error => e
+    redirect_to lead_path(lead), alert: e.message
   end
 
   def update_email
@@ -133,6 +153,16 @@ class LeadsController < ApplicationController
   end
 
   private
+
+  def persist_pitch_personalization!(lead, personalization)
+    data = (lead.raw_data || {}).deep_dup
+    if personalization.present?
+      data[Leads::PitchGenerator::PERSONALIZATION_KEY] = personalization
+    else
+      data.delete(Leads::PitchGenerator::PERSONALIZATION_KEY)
+    end
+    lead.update!(raw_data: data)
+  end
 
   def bulk_send_redirect_params
     params[:status].present? ? { status: params[:status] } : {}

@@ -23,6 +23,7 @@ Rails.application.routes.draw do
     end
     member do
       post :generate_pitch
+      post :find_email
       patch :update_email
       post :retry
     end

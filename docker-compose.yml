@@ -45,6 +45,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: lead_pipeline_development
       POSTGRES_QUEUE_DB: lead_pipeline_development_queue
+      POSTGRES_CABLE_DB: lead_pipeline_development_cable
       SOLID_QUEUE_IN_PUMA: "true"
       GMAIL_REDIRECT_URI: http://localhost:3000/gmail/oauth/callback
     depends_on:

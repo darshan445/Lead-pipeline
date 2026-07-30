@@ -1,9 +1,14 @@
-# Async adapter only works within the same process, so for manually triggering cable updates from a console,
-# and seeing results in the browser, you must do so from the web console (running inside the dev process),
-# not a terminal started via bin/rails console! Add "console" to any action or any ERB template view
-# to make the web console appear.
+# Solid Queue runs in forked processes (even with SOLID_QUEUE_IN_PUMA).
+# The async adapter only delivers within one process, so Turbo Stream
+# broadcasts from jobs never reach the browser. Use solid_cable everywhere
+# jobs run so pub/sub goes through Postgres.
 development:
-  adapter: async
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: 0.1.seconds
+  message_retention: 1.day
 
 test:
   adapter: test

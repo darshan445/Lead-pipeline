@@ -2,9 +2,12 @@ module Leads
   class PitchGenerator
     FIXED_SUBJECT = "A simpler way to handle payment follow-ups"
     SIGN_OFF = "Best,\nDarsh Thakor"
+    PERSONALIZATION_KEY = "pitch_personalization"
 
-    def initialize(lead, openrouter_client: OpenRouterClient.new)
+    def initialize(lead, personalization: nil, openrouter_client: OpenRouterClient.new)
       @lead = lead
+      @personalization = personalization.to_s.strip.presence ||
+        (lead.raw_data || {})[PERSONALIZATION_KEY].to_s.strip.presence
       @openrouter_client = openrouter_client
     end
 
@@ -22,6 +25,33 @@ module Leads
     private
 
     def system_prompt
+      [
+        personalization_override_section,
+        default_system_prompt
+      ].compact.join("\n\n")
+    end
+
+    def personalization_override_section
+      return if @personalization.blank?
+
+      <<~PROMPT
+        # PERSONALIZATION OVERRIDES (HIGHEST PRIORITY)
+
+        The operator provided the personalization instructions below.
+        Treat them as **first-priority context**.
+
+        Rules for applying them:
+        * If an instruction conflicts with anything later in this prompt (word count / length, tone, opening style, how much to personalize, structure emphasis, CTA wording, subject line, etc.), **follow the personalization instruction** for that specific point.
+        * If personalization is silent on a topic, follow the default rules below unchanged.
+        * Do not invent LinkedIn facts. Still only use profile details that are actually present.
+        * Still return plain text only (subject + blank line + body), and still end with the exact sign-off unless personalization explicitly asks otherwise.
+
+        Personalization instructions:
+        #{@personalization}
+      PROMPT
+    end
+
+    def default_system_prompt
       <<~PROMPT
         # Role
 
@@ -228,7 +258,8 @@ module Leads
 
     def user_prompt
       data = @lead.raw_data || {}
-      <<~PROMPT
+      parts = []
+      parts << <<~PROMPT
         Write the cold email for this recipient.
 
         Person LinkedIn URL: #{@lead.profile_url}
@@ -238,9 +269,18 @@ module Leads
         Company website / domain: #{@lead.website_url.presence || data["companyWebsite"]}
         Company LinkedIn: #{data["companyProfileUrl"]}
 
-        LinkedIn profile data (JSON) — personalize ONLY the first sentence from facts visible here:
+        LinkedIn profile data (JSON) — personalize ONLY the first sentence from facts visible here (unless personalization overrides say otherwise):
         #{person_summary(data).to_json}
       PROMPT
+
+      if @personalization.present?
+        parts << <<~PROMPT
+          Reminder — apply these personalization overrides with highest priority where they conflict with the default instructions:
+          #{@personalization}
+        PROMPT
+      end
+
+      parts.join("\n")
     end
 
     def person_summary(data)
@@ -258,9 +298,14 @@ module Leads
     end
 
     # Guarantee spacing + fixed sign-off even if the model omits or varies them.
+    # With personalization, keep the model subject if it provided one (override allowed).
     def ensure_sign_off(raw)
       parsed = Leads::PitchParser.call(raw)
-      subject = parsed.subject.presence || FIXED_SUBJECT
+      subject = if @personalization.present?
+        parsed.subject.presence || FIXED_SUBJECT
+      else
+        FIXED_SUBJECT
+      end
       body = Leads::PitchBodyNormalizer.call(parsed.body)
 
       "#{subject}\n\n#{body}"

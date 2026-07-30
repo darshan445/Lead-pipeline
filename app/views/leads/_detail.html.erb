@@ -37,12 +37,30 @@
   <div class="rounded-lg border border-gray-200 p-5">
     <h2 class="text-lg font-semibold text-gray-900 mb-4">Pitch</h2>
 
-    <% if lead.person_lead? && (lead.ready? || lead.pitched? || lead.failed? || lead.sent?) %>
-      <div class="mb-4 flex flex-wrap gap-2">
-        <%= button_to "Generate pitch", generate_pitch_lead_path(lead), class: "rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 cursor-pointer" %>
-        <% if lead.retryable? %>
-          <%= button_to "Retry failed step", retry_lead_path(lead), class: "rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-400 cursor-pointer" %>
+    <% if lead.person_lead? && (lead.ready? || lead.pitched? || lead.failed? || lead.sent? || lead.queued?) %>
+      <div class="mb-4 space-y-3">
+        <%= form_with url: generate_pitch_lead_path(lead), method: :post, class: "space-y-2" do %>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Personalization <span class="font-normal text-gray-400">(optional)</span></label>
+            <%= text_area_tag :personalization,
+                  (lead.raw_data || {})[Leads::PitchGenerator::PERSONALIZATION_KEY],
+                  rows: 3,
+                  placeholder: "e.g. Keep it under 100 words, warmer tone, mention their agency’s focus on retainers…",
+                  class: "w-full rounded-md border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+            <p class="mt-1 text-xs text-gray-400">Overrides matching default prompt rules (length, tone, opening, etc.). Leave blank to use the standard pitch.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <%= submit_tag "Generate pitch",
+                  class: "inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 cursor-pointer" %>
+          </div>
         <% end %>
+        <div class="flex flex-wrap gap-2">
+          <%= button_to "Find email", find_email_lead_path(lead),
+                class: "inline-flex items-center rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-600 cursor-pointer" %>
+          <% if lead.retryable? %>
+            <%= button_to "Retry failed step", retry_lead_path(lead), class: "inline-flex items-center rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-400 cursor-pointer" %>
+          <% end %>
+        </div>
       </div>
     <% elsif lead.company_lead? %>
       <div class="mb-4 flex flex-wrap gap-2">

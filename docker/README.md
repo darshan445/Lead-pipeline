@@ -4,6 +4,8 @@
 
 **No separate worker.** `SOLID_QUEUE_IN_PUMA=true` runs background jobs inside Puma (discovery, pitches, staggered Gmail sends).
 
+Jobs still run in **forked** processes, so Action Cable uses **solid_cable** (Postgres), not the in-memory `async` adapter. Without the cable DB, status changes only show after a manual refresh.
+
 ## Development
 
 ```bash
@@ -11,6 +13,13 @@ docker compose up --build
 ```
 
 Open http://localhost:3000
+
+If the DB volume already existed before cable support, create the DB once:
+
+```bash
+docker compose exec db psql -U postgres -c "CREATE DATABASE lead_pipeline_development_cable;"
+docker compose restart web
+```
 
 ## Production (Vultr — IP only, plain HTTP)
 
