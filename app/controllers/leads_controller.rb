@@ -45,11 +45,11 @@ class LeadsController < ApplicationController
   def bulk_send_pitch
     ids = Array(params[:lead_ids]).map(&:presence).compact
     if ids.empty?
-      redirect_to leads_path(bulk_send_redirect_params), alert: "Select at least one lead to send." and return
+      redirect_to leads_path(bulk_redirect_params), alert: "Select at least one lead to send." and return
     end
 
     unless GmailClient.configured?
-      redirect_to leads_path(bulk_send_redirect_params),
+      redirect_to leads_path(bulk_redirect_params),
         alert: "Gmail is not connected yet. Connect Gmail first, then try again." and return
     end
 
@@ -58,7 +58,7 @@ class LeadsController < ApplicationController
     skipped = leads.size - sendable.size
 
     if sendable.empty?
-      redirect_to leads_path(bulk_send_redirect_params),
+      redirect_to leads_path(bulk_redirect_params),
         alert: "No selected leads are ready to send. They must be Pitched or Sent, with an email and generated pitch." and return
     end
 
@@ -68,39 +68,38 @@ class LeadsController < ApplicationController
 
     notice = "Queued #{queued_count} email#{'s' unless queued_count == 1} via Gmail (randomized order, #{range} between sends, only during #{window})."
     notice += " Skipped #{skipped} not eligible." if skipped.positive?
-    redirect_to leads_path(bulk_send_redirect_params), notice: notice
+    redirect_to leads_path(bulk_redirect_params), notice: notice
   end
 
   def retry
     lead = Lead.find(params[:id])
+    result = Leads::RetryRunner.call(lead)
 
-    unless lead.retryable?
-      redirect_back_or_to leads_path, alert: "This lead is not retryable." and return
-    end
-
-    case lead.retry_stage
-    when :scrape
-      Leads::LinkedinScrapeJob.perform_later([ lead.id ])
-      message = "Retrying company scrape for #{lead.profile_name}..."
-    when :qualify
-      lead.update!(status: :qualifying, error_message: nil)
-      Leads::LinkedinQualifyJob.perform_later(lead.id)
-      message = "Retrying company qualification for #{lead.profile_name}..."
-    when :employee_select
-      lead.update!(status: :employee_discovery, error_message: nil)
-      Leads::LinkedinEmployeesJob.perform_later(lead.id)
-      message = "Retrying employee discovery for #{lead.profile_name}..."
-    when :pitch
-      Leads::PitchGenerationJob.perform_later(lead.id)
-      message = "Retrying pitch generation for #{lead.profile_name}..."
-    when :send
-      Leads::GmailSendJob.perform_later(lead.id)
-      message = "Retrying Gmail send for #{lead.profile_name}..."
+    if result.retried?
+      redirect_back_or_to leads_path, notice: result.message
     else
-      redirect_back_or_to leads_path, alert: "Could not determine which step to retry." and return
+      redirect_back_or_to leads_path, alert: result.message
+    end
+  end
+
+  def bulk_retry
+    ids = Array(params[:lead_ids]).map(&:presence).compact
+    if ids.empty?
+      redirect_to leads_path(bulk_redirect_params), alert: "Select at least one lead to retry." and return
     end
 
-    redirect_back_or_to leads_path, notice: message
+    results = Lead.where(id: ids).map { |lead| Leads::RetryRunner.call(lead) }
+    retried = results.count(&:retried?)
+    skipped = results.size - retried
+
+    if retried.zero?
+      redirect_to leads_path(bulk_redirect_params),
+        alert: "None of the selected leads are retryable. Only Failed, Rejected, or empty-employee leads can be retried." and return
+    end
+
+    notice = "Retrying #{retried} lead#{'s' unless retried == 1}..."
+    notice += " Skipped #{skipped} not retryable." if skipped.positive?
+    redirect_to leads_path(bulk_redirect_params), notice: notice
   end
 
   def generate_pitch
@@ -164,7 +163,7 @@ class LeadsController < ApplicationController
     lead.update!(raw_data: data)
   end
 
-  def bulk_send_redirect_params
+  def bulk_redirect_params
     params[:status].present? ? { status: params[:status] } : {}
   end
 end

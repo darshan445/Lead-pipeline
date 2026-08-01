@@ -56,13 +56,18 @@
 <%= form_with url: bulk_destroy_leads_path, method: :delete, class: "space-y-3", data: { controller: "bulk-select" } do %>
   <%= hidden_field_tag :status, params[:status] if params[:status].present? %>
   <div class="flex items-center justify-between gap-3">
-    <p class="text-xs text-gray-500">Select leads, then queue Gmail sends (randomized order, <%= Leads::GmailQueue.delay_range_label %> between each, only <%= Leads::GmailSendWindow.label %>) or delete in bulk.</p>
+    <p class="text-xs text-gray-500">Select leads, then queue Gmail sends (randomized order, <%= Leads::GmailQueue.delay_range_label %> between each, only <%= Leads::GmailSendWindow.label %>), retry failed steps, or delete in bulk.</p>
     <div class="flex flex-wrap items-center gap-2">
       <%= submit_tag "Send via Gmail",
             formaction: bulk_send_pitch_leads_path,
             formmethod: "post",
             data: { turbo_confirm: "Queue selected Pitched or Sent leads via Gmail (randomized, staggered)?" },
             class: "rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white hover:bg-green-600 cursor-pointer" %>
+      <%= submit_tag "Retry selected",
+            formaction: bulk_retry_leads_path,
+            formmethod: "post",
+            data: { turbo_confirm: "Retry the failed step for the selected leads?" },
+            class: "rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-400 cursor-pointer" %>
       <%= submit_tag "Delete selected",
             data: { turbo_confirm: "Delete the selected leads?" },
             class: "rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 cursor-pointer" %>

@@ -20,6 +20,7 @@ Rails.application.routes.draw do
       post :discover
       delete :bulk_destroy
       post :bulk_send_pitch
+      post :bulk_retry
     end
     member do
       post :generate_pitch
